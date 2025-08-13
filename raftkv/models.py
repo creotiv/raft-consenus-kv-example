@@ -23,6 +23,7 @@ class AEResponse(BaseModel):
     term: int
     success: bool
     nextIndexHint: int
+    conflictTerm: Optional[int] = None
 
 
 class RVRequest(BaseModel):

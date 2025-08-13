@@ -1,9 +1,14 @@
 from typing import Dict
 
+from raftkv.interfaces import KVStateMachineInterface
 
-class KVStateMachine:
+
+class KVStateMachine(KVStateMachineInterface):
     def __init__(self):
         self.kv: Dict[str, str] = {}
+
+    async def shutdown(self):
+        pass
 
     def apply(self, cmd: bytes):
         parts = cmd.decode().split()
