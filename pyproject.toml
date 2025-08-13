@@ -9,6 +9,7 @@ dependencies = [
   "pydantic>=2.7",
   "pyyaml>=6.0.1",
   "aiofiles>=23.2",
+  "colorlog>=6.9.0",
 ]
 
 [tool.uvicorn]
