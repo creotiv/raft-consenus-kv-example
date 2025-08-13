@@ -6,25 +6,60 @@ A Python-based Key-Value service built on top of the Raft consensus algorithm.
 
 This project implements a distributed key-value store using the Raft consensus protocol. It provides a REST API for basic KV operations (SET, GET, DELETE) with strong consistency guarantees.
 
-## Architecture
+> ⚠️ Status: Educational/experimental. Snapshots & membership changes are TODO. Good enough to study and benchmark; not yet production‑ready.
 
-- **Raft Consensus**: Implements leader election, log replication, and safety properties
-- **HTTP API**: RESTful interface for KV operations
-- **Multi-node Support**: Configurable cluster with multiple nodes
-- **Linearizable Reads**: Support for strongly consistent read operations
+## Features
+
+- ✅ Raft core: leader election, heartbeats, conflict repair, majority commit rule
+- ✅ Batched proposals with single fsync per batch
+- ✅ Linearizable reads via ReadIndex barrier
+- ✅ Durable storage:
+  - `log.bin` (binary: MAGIC + [index, term, len, cmd])
+  - atomic metadata (`meta.json`) with fsync
+- ✅ Simple KV state machine: `SET key value`, `DEL key`, `GET`
+- ⚠️ TODO: snapshots, InstallSnapshot RPC, joint‑consensus membership, log compaction
+
+## Project structure
+```
+├── app/ # (HTTP client API – FastAPI) ← not described in article
+├── configs/ # node1.yaml / node2.yaml / node3.yaml
+├── raftkv/
+│ ├── config.py # YAML loader + data dir init
+│ ├── election.py # Election timer / RequestVote
+│ ├── interfaces.py # Abstract boundaries
+│ ├── logstore.py # Binary log with fsync
+│ ├── models.py # Pydantic types for Raft RPCs/log
+│ ├── node.py # Orchestrator (state, loops, propose path)
+│ ├── readindex.py # Linearizable read barrier
+│ ├── replication.py # AppendEntries, batching, commit rule
+│ ├── rpc.py # RPC client + server handlers
+│ ├── state.py # State controller + structured state logging
+│ ├── statemachine.py # KV apply() + get()
+│ ├── storage.py # Metadata (term/votedFor) with atomic replace
+│ ├── membership.py # TODO
+│ ├── snapshot.py # TODO
+│ └── errors.py # TODO (prefer over raising HTTPException in core)
+├── main.py # App bootstrap
+├── Makefile # run1/run2/run3/run-all/test-k6
+├── k6-bench.js # quick load test
+└── pyproject.toml
+```
+
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.11+
 - k6 (for load testing)
 
 ### Installation
 
 1. Install Python dependencies:
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
 ```
 
 2. Install k6 (for load testing):
@@ -85,8 +120,7 @@ This project includes comprehensive k6 load testing scripts to test the KV servi
 
 ### Test Scripts
 
-1. **`k6-simple.js`** - Quick test with 5 users for 1 minute
-2. **`k6.js`** - Full load test with ramping users (10 → 20 → 0) over 16 minutes
+**`k6-bench.js`** - Quick test with 100 users for 30 sec
 
 ### Running Tests
 
@@ -94,36 +128,3 @@ This project includes comprehensive k6 load testing scripts to test the KV servi
 ```bash
 make test-k6
 ```
-
-### Test Features
-
-- **Random Key-Value Generation**: Each request uses unique, randomly generated keys and values
-- **Parallel Users**: Tests with multiple concurrent users to simulate real-world load
-- **Comprehensive Metrics**: Tracks latency, success rates, and error rates
-- **Configurable Load**: Adjustable user counts and test durations
-- **Realistic Patterns**: Random delays between requests to simulate human behavior
-
-### Test Configuration
-
-The full test (`k6.js`) includes:
-- **Ramp-up Phase**: Gradually increase from 0 to 10 users over 2 minutes
-- **Sustained Load**: Maintain 10 users for 5 minutes
-- **Peak Load**: Ramp up to 20 users over 2 minutes
-- **Peak Sustained**: Maintain 20 users for 5 minutes
-- **Ramp-down**: Gradually decrease to 0 users over 2 minutes
-
-### Performance Thresholds
-
-Tests include performance thresholds:
-- 95% of requests should complete within 2 seconds
-- Error rate should be below 10%
-- Custom error tracking for detailed analysis
-
-### Customizing Tests
-
-You can modify the test scripts to:
-- Change the number of virtual users
-- Adjust test duration
-- Modify the target service URL
-- Add custom metrics and checks
-- Implement different load patterns
